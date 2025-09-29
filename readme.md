@@ -1,8 +1,3 @@
-ótimo — aqui vai um **README.md** simples, explicando o projeto, como compilar/rodar, como jogar, e como sincronizar servidores:
-
----
-
-```markdown
 # QA Quiz Game (Java)
 
 Projeto de jogo de perguntas e respostas em **Java**, com suporte a múltiplos clientes e sincronização entre servidores (peers).
@@ -128,25 +123,4 @@ Exemplo:
 
 ```
 123e4567-e89b-12d3-a456-426614174001|Java|Qual palavra-chave é usada para herdar uma classe em Java?|implements;;inherits;;extends;;super|2
-```
-
-> Dica: use `uuidgen` (Linux/Mac) para gerar novos `id`.
-
----
-
-## ✅ Requisitos atendidos
-
-* Banco local de perguntas.
-* Pergunta aleatória enviada a cada cliente.
-* Pontuação por sessão de cliente.
-* Cliente simples: só responde índices ou sai.
-* Servidor autônomo, sem peers.
-* Integração com peers sem alterar código, apenas comandos no console.
-* Após sincronização, perguntas importadas ficam locais.
-
-```
-
----
-
-quer que eu já monte esse README com **exemplo do arquivo `questions.psv` pronto com as 10 perguntas seeds (2 originais + 8 novas)**?
 ```
