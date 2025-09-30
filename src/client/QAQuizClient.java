@@ -1,79 +1,47 @@
 package client;
 
+import schema.Question;
+
 import java.io.*;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Scanner;
 
 public class QAQuizClient {
-    private static final String CRLF = "\r\n";
-
     public static void run(String host, int port) {
-        try (Socket s = new Socket()) {
-            s.connect(new InetSocketAddress(host, port), 5000);
-            s.setSoTimeout(0);
-            BufferedReader in  = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
-            BufferedWriter out = new BufferedWriter(new OutputStreamWriter(s.getOutputStream(), StandardCharsets.UTF_8));
+        try (Socket s = new Socket(host, port)) {
+            ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream()); oos.flush();
+            ObjectInputStream  ois = new ObjectInputStream(s.getInputStream());
 
-            String banner = in.readLine(); // BANNER|QAQuizServer
-            System.out.println("[conectado] " + banner);
+            System.out.println("[conectado] " + ois.readObject());
 
             Scanner sc = new Scanner(System.in);
-
             while (true) {
-                String line = in.readLine();
-                if (line == null) { System.out.println("[servidor encerrou]"); break; }
+                Object obj = ois.readObject();
 
-                if (line.startsWith("QUESTION|")) {
-                    String[] p = line.split("\\|", -1);
-                    // QUESTION|id|topic|text|opt0;;opt1...
-                    if (p.length < 5) { System.out.println("[malformado] " + line); continue; }
-                    String qid = p[1];
-                    String topic = p[2];
-                    String text  = p[3];
-                    String[] opts = p[4].split(";;", -1);
-
-                    System.out.println();
-                    System.out.println("[" + topic + "] " + text);
-                    for (int i = 0; i < opts.length; i++) {
-                        System.out.println("  " + i + ") " + opts[i]);
+                if (obj instanceof Question q) {
+                    System.out.println("\n[" + q.topic + "] " + q.text);
+                    for (int i = 0; i < q.options.size(); i++) {
+                        System.out.println("  " + i + ") " + q.options.get(i));
                     }
                     System.out.print("Resposta (índice) ou 'sair': ");
                     String ans = sc.nextLine().trim();
-                    if (ans.equalsIgnoreCase("sair") || ans.equalsIgnoreCase("exit")) {
-                        out.write("SAIR" + CRLF); out.flush();
-                        // aguarda BYE
-                        String bye = in.readLine();
-                        if (bye != null && bye.startsWith("BYE|")) {
-                            System.out.println("Saindo. Pontuação: " + bye.substring(4));
-                        }
-                        break;
+                    if (ans.equalsIgnoreCase("sair")) {
+                        oos.writeObject("SAIR"); oos.flush(); break;
                     } else {
-                        out.write("ANSWER|" + qid + "|" + ans + CRLF);
-                        out.flush();
+                        oos.writeObject("ANSWER:" + q.id + ":" + ans); oos.flush();
                     }
-                } else if (line.startsWith("RESULT|")) {
-                    String[] p = line.split("\\|", -1);
-                    // RESULT|true/false|score
-                    boolean ok = "true".equalsIgnoreCase(p[1]);
-                    String score = (p.length > 2) ? p[2] : "?";
-                    System.out.println(ok ? "✅ Correto!" : "❌ Errado.");
-                    System.out.println("Pontuação: " + score);
-                    // próxima mensagem será QUESTION ou END (loop continua)
-                } else if (line.startsWith("END|")) {
-                    System.out.println("\nFim do jogo. Pontuação final: " + line.substring(4));
-                    break;
-                } else if (line.startsWith("BYE|")) {
-                    System.out.println("Encerrado pelo servidor. Pontuação: " + line.substring(4));
-                    break;
-                } else if (line.startsWith("ERR|")) {
-                    System.out.println("[erro] " + line.substring(4));
-                } else {
-                    System.out.println("[srv] " + line);
+                } else if (obj instanceof String msg) {
+                    if (msg.startsWith("RESULT|")) {
+                        String[] p = msg.split("\\|");
+                        System.out.println((p[1].equals("true") ? "✅ Correto!" : "❌ Errado.") +
+                                " | Pontuação: " + p[2]);
+                    } else if (msg.startsWith("END|")) {
+                        System.out.println("Fim do jogo. Pontuação: " + msg.substring(4)); break;
+                    } else if (msg.startsWith("BYE|")) {
+                        System.out.println("Encerrado. Pontuação: " + msg.substring(4)); break;
+                    }
                 }
             }
-        } catch (IOException e) {
-            System.out.println("[erro de conexão] " + e.getMessage());
-        }
+        } catch (Exception e) { System.out.println("[erro] " + e.getMessage()); }
     }
 }

@@ -7,9 +7,7 @@ public class Main {
         //   Servidor: java Main server 0.0.0.0 6000 data.psv
         //   Cliente : java Main client 127.0.0.1 6000
         if (args.length < 1) {
-            System.out.println("usage:");
-            System.out.println("  server <host> <port> <datafile>");
-            System.out.println("  client <host> <port>");
+            System.out.println("usage:\n  server <host> <port> <datafile>\n  client <host> <port>");
             return;
         }
         switch (args[0].toLowerCase()) {

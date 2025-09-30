@@ -1,18 +1,24 @@
 # QA Quiz Game (Java)
 
-Projeto de jogo de perguntas e respostas em **Java**, com suporte a múltiplos clientes e sincronização entre servidores (peers).
+Projeto de jogo de perguntas e respostas em **Java**, com suporte a múltiplos clientes e sincronização entre servidores (peers).  
+Agora com **logs detalhados** no terminal para acompanhar a atividade do jogo e da rede.
+
+---
 
 ## 🎮 Regras do jogo
 
-- O **cliente** se conecta a um **servidor** e recebe **uma pergunta aleatória** do banco.
-- O cliente só precisa digitar o **índice da alternativa** (ou `sair` para encerrar).
-- O servidor responde **certo/errado** e mostra a **pontuação acumulada**.
+- O **cliente** se conecta ao **servidor** e recebe **uma pergunta aleatória**.
+- O cliente responde digitando apenas o **índice da alternativa** (`0`, `1`, `2`, …) ou `sair`.
+- O servidor responde se a resposta está **certa ou errada** e mostra a **pontuação acumulada**.
 - O jogo termina quando:
-  - acabarem as perguntas, ou
-  - o usuário digitar `sair`, ou
-  - encerrar o terminal (`Ctrl+C`).
-- O servidor guarda a pontuação **apenas por sessão de cliente**.
-- O banco de perguntas é salvo em arquivo `.psv`.
+  - acabam as perguntas, ou
+  - o cliente digita `sair`, ou
+  - a conexão é encerrada.
+- O servidor mantém a pontuação **só durante a sessão**.
+- O banco de perguntas é salvo em um arquivo `.psv` legível.
+- IDs das perguntas são **determinísticos** (baseados no conteúdo), evitando duplicatas na sincronização.
+
+---
 
 ## 📂 Estrutura do projeto
 
@@ -20,11 +26,13 @@ Projeto de jogo de perguntas e respostas em **Java**, com suporte a múltiplos c
 
 src/
 Main.java                # ponto de entrada
-schema/Question.java     # modelo de pergunta
-server/QAQuizServer.java # lógica do servidor + sync com peers
-client/QAQuizClient.java # lógica do cliente
+schema/Question.java     # modelo de pergunta (Serializable, ID determinístico)
+server/QAQuizServer.java # servidor (jogo + sync + logs detalhados)
+client/QAQuizClient.java # cliente (interface terminal)
 
 ````
+
+---
 
 ## ⚙️ Compilação
 
@@ -34,11 +42,13 @@ Compile todos os arquivos para a pasta `out`:
 javac -d out $(find src -name "*.java")
 ````
 
+---
+
 ## 🚀 Execução
 
 ### Servidor
 
-Inicie o servidor em uma porta:
+Inicie o servidor:
 
 ```bash
 java -cp out Main server 0.0.0.0 6000 questions.psv
@@ -50,21 +60,18 @@ java -cp out Main server 0.0.0.0 6000 questions.psv
 
 ### Cliente
 
-Conecte-se a um servidor existente:
+Conecte-se a um servidor:
 
 ```bash
 java -cp out Main client 127.0.0.1 6000
 ```
 
-No cliente:
+---
 
-* Você já recebe uma pergunta.
-* Digite o índice da alternativa (`0`, `1`, …) ou `sair`.
-
-### Exemplo de sessão (cliente)
+## 💻 Exemplo de sessão (cliente)
 
 ```
-[conectado] BANNER|QAQuizServer
+[conectado] BANNER:QAQuizServer
 
 [Python] Qual função imprime no console?
   0) scan()
@@ -72,36 +79,36 @@ No cliente:
   2) echo()
   3) show()
 Resposta (índice) ou 'sair': 1
-✅ Correto!
-Pontuação: 1
+✅ Correto! | Pontuação: 1
 ```
+
+---
 
 ## 🔄 Sincronização entre servidores
 
-Do lado do **servidor**, existe um **console administrativo** no mesmo terminal onde ele roda.
+O servidor possui um **console administrativo** (no mesmo terminal onde roda).
 Comandos disponíveis:
 
 * `PEERS` → lista peers conhecidos
 * `ADD_PEER <host> <port>` → adiciona um peer
 * `PULL <host> <port>` → puxa todas as perguntas do peer e integra ao banco local
 * `COUNT` → mostra total de perguntas
-* `HELP` → ajuda
 
 ### Exemplo
 
-Terminal A (porta 6000):
+Servidor A (porta 6000):
 
 ```bash
 java -cp out Main server 0.0.0.0 6000 dataA.psv
 ```
 
-Terminal B (porta 6001):
+Servidor B (porta 6001):
 
 ```bash
 java -cp out Main server 0.0.0.0 6001 dataB.psv
 ```
 
-No terminal do servidor A, digite:
+No console do **Servidor A**:
 
 ```
 ADD_PEER 127.0.0.1 6001
@@ -109,7 +116,39 @@ PULL 127.0.0.1 6001
 COUNT
 ```
 
-Agora o servidor A terá também as perguntas do servidor B.
+---
+
+## 📜 Logs de feedback
+
+O servidor agora exibe logs detalhados:
+
+### Quando um cliente conecta e joga:
+
+```
+[SERVE] Escutando em /0.0.0.0:6000
+[CONNECT] Conexão de /127.0.0.1:54321
+[GAME] Cliente /127.0.0.1:54321 respondeu 3f1a2b (correto=true, score=1)
+[GAME] Cliente /127.0.0.1:54321 terminou o jogo. Score=3
+```
+
+### Quando um peer pede EXPORT:
+
+```
+[PEER] Peer /127.0.0.1:54322 pediu EXPORT (10 perguntas)
+[PEER] Enviadas 10 perguntas para /127.0.0.1:54322
+```
+
+### Quando este servidor faz PULL de outro:
+
+```
+[SYNC] Conectando ao peer 127.0.0.1:6001...
+[SYNC] Recebido banner: BANNER:QAQuizServer
+[SYNC] Pedido EXPORT enviado
+[SYNC] Recebidas 10 perguntas, adicionadas 2 (total local 12)
+[ADMIN] Importados 2 perguntas de 127.0.0.1:6001
+```
+
+---
 
 ## 📝 Banco de perguntas
 
@@ -122,5 +161,10 @@ id|topic|text|opt0;;opt1;;opt2;;...|correctIndex
 Exemplo:
 
 ```
-123e4567-e89b-12d3-a456-426614174001|Java|Qual palavra-chave é usada para herdar uma classe em Java?|implements;;inherits;;extends;;super|2
+3f1a2b|Java|Qual palavra-chave é usada para herdar uma classe em Java?|implements;;inherits;;extends;;super|2
 ```
+
+* O **id** é calculado automaticamente (determinístico via `hashCode` do conteúdo).
+* O mesmo conteúdo gera o **mesmo id**, evitando duplicação na sincronização entre servidores.
+
+---
